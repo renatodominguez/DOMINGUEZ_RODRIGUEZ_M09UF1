@@ -1,6 +1,7 @@
 package edu.fje.dominguez_rodriguez_m09uf1;
 
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -9,12 +10,19 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.FirebaseApp;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.Signature;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 
 public class SegundaPantalla extends AppCompatActivity {
 
@@ -22,6 +30,8 @@ public class SegundaPantalla extends AppCompatActivity {
     private ChatAdapter adapter;
     private List<String> messages;
     private DatabaseReference databaseRef;
+    private SecretKey symmetricKey;
+    private KeyPair asymmetricKeyPair;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,18 +52,28 @@ public class SegundaPantalla extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
+        // Generar claves simétricas y asimétricas
+        try {
+            generateSymmetricKey();
+            generateAsymmetricKeys();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+
         buttonSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 String message = editTextMessage.getText().toString().trim();
                 if (!message.isEmpty()) {
-                    // Agregar el mensaje al RecyclerView
-                    messages.add(message);
-                    adapter.notifyItemInserted(messages.size() - 1);
-                    recyclerView.scrollToPosition(messages.size() - 1);
+                    // Cifrar el mensaje simétricamente
+                    String encryptedMessage = encryptSymmetrically(message);
 
-                    // Guardar el mensaje en Firebase Realtime Database
-                    myRef.setValue(message);
+                    // Firmar y cifrar la firma digital asimétricamente
+                    String signature = signAndEncryptAsymmetrically(encryptedMessage);
+
+                    // Guardar el mensaje cifrado y la firma cifrada en Firebase
+                    String combinedMessage = encryptedMessage + "|" + signature;
+                    myRef.setValue(combinedMessage);
 
                     // Limpiar el EditText después de enviar el mensaje
                     editTextMessage.setText("");
@@ -61,4 +81,61 @@ public class SegundaPantalla extends AppCompatActivity {
             }
         });
     }
+
+    // Generar una clave simétrica
+    private void generateSymmetricKey() throws NoSuchAlgorithmException {
+        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+        keyGenerator.init(256);
+        symmetricKey = keyGenerator.generateKey();
+    }
+
+    // Generar un par de claves asimétricas
+    private void generateAsymmetricKeys() throws NoSuchAlgorithmException {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        asymmetricKeyPair = keyPairGenerator.generateKeyPair();
+    }
+
+    // Cifrar el mensaje simétricamente
+    private String encryptSymmetrically(String message) {
+        try {
+            Cipher cipher = Cipher.getInstance("AES");
+            cipher.init(Cipher.ENCRYPT_MODE, symmetricKey);
+            byte[] encryptedBytes = cipher.doFinal(message.getBytes());
+            return Base64.encodeToString(encryptedBytes, Base64.DEFAULT);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    // Firmar y cifrar la firma digital asimétricamente
+    private String signAndEncryptAsymmetrically(String message) {
+        try {
+            Cipher cipher = Cipher.getInstance("RSA");
+            cipher.init(Cipher.ENCRYPT_MODE, asymmetricKeyPair.getPrivate());
+            byte[] signatureBytes = cipher.doFinal(message.getBytes());
+            return Base64.encodeToString(signatureBytes, Base64.DEFAULT);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    // Verificar la firma digital asimétricamente
+    private boolean verifySignature(String message, String signature) {
+        try {
+            Signature verifier = Signature.getInstance("SHA256withRSA");
+            verifier.initVerify(asymmetricKeyPair.getPublic());
+            verifier.update(message.getBytes());
+            byte[] signatureBytes = Base64.decode(signature, Base64.DEFAULT);
+            return verifier.verify(signatureBytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
+
+
+
