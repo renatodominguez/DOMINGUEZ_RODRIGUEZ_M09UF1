@@ -29,8 +29,8 @@ public class SegundaPantalla extends AppCompatActivity {
         setContentView(R.layout.activity_segunda_pantalla);
 
         // Inicializar Firebase
-        FirebaseApp.initializeApp(this);
-        databaseRef = FirebaseDatabase.getInstance().getReference("chat").child("mensajes");
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference myRef = database.getReference("message");
 
         recyclerView = findViewById(R.id.recyclerViewChat);
         Button buttonSend = findViewById(R.id.buttonSend);
@@ -53,8 +53,7 @@ public class SegundaPantalla extends AppCompatActivity {
                     recyclerView.scrollToPosition(messages.size() - 1);
 
                     // Guardar el mensaje en Firebase Realtime Database
-                    String messageId = databaseRef.push().getKey();
-                    databaseRef.child(messageId).child("contenido").setValue(message);
+                    myRef.setValue(message);
 
                     // Limpiar el EditText después de enviar el mensaje
                     editTextMessage.setText("");
