@@ -109,6 +109,19 @@ public class ClientActivity extends AppCompatActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            /*
+                            String[] parts = serverResponse.split("\\|");
+                            String encryptedMessage = parts[0];
+                            String signature = parts[1];
+                            if (verifySignature(encryptedMessage, signature)) {
+                                String decryptedMessage = decryptSymmetrically(encryptedMessage);
+                                textView.setText("Respuesta del servidor: " + decryptedMessage);
+                            } else {
+                                textView.setText("Error: La firma digital no es válida.");
+                            }
+
+                             */
+
                             textView.setText("Respuesta del servidor: " + serverResponse);
                         }
                     });
@@ -131,19 +144,18 @@ public class ClientActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
-                    // Cifrar el mensaje simétricamente
+                    // Xifratge missatge simétricament
                     String encryptedMessage = encryptSymmetrically(message);
 
                     // Firmar y cifrar la firma digital asimétricamente
                     String signature = signAndEncryptAsymmetrically(encryptedMessage);
 
                     String combinedMessage = encryptedMessage + "|" + signature;
-                    // Enviar el mensaje combinado al servidor
+                    // ENVIAR CLAU EMBOLQUELLADA AL SERVER
                     Log.i("test", "mensaje encriptado: " + combinedMessage);
 
                     outputStream.write((combinedMessage + "\n").getBytes());
 
-                    // Actualizar la interfaz de usuario con el mensaje enviado
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -222,4 +234,17 @@ public class ClientActivity extends AppCompatActivity {
             return false;
         }
     }
+
+    private String decryptSymmetrically(String encryptedMessage) {
+        try {
+            Cipher cipher = Cipher.getInstance("AES");
+            cipher.init(Cipher.DECRYPT_MODE, symmetricKey);
+            byte[] decryptedBytes = cipher.doFinal(Base64.decode(encryptedMessage, Base64.DEFAULT));
+            return new String(decryptedBytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
 }
