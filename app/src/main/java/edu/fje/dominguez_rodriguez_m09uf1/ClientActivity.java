@@ -6,11 +6,17 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.Socket;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
@@ -22,26 +28,33 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
-public class SegundaPantalla extends AppCompatActivity {
+public class ClientActivity extends AppCompatActivity {
 
+    private TextView textView;
     private RecyclerView recyclerView;
     private ChatAdapter adapter;
     private List<String> messages;
     private SecretKey symmetricKey;
     private KeyPair asymmetricKeyPair;
+    private Button buttonSend;
+    private EditText editTextMessage;
+    private Socket socket;
+    private OutputStream outputStream;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_segunda_pantalla);
+        setContentView(R.layout.activity_client);
 
+        // Inicializar vistas
         recyclerView = findViewById(R.id.recyclerViewChat);
-        Button buttonSend = findViewById(R.id.buttonSend);
-        final EditText editTextMessage = findViewById(R.id.editTextMessage);
+        buttonSend = findViewById(R.id.buttonSend);
+        editTextMessage = findViewById(R.id.editTextMessage);
+        textView = findViewById(R.id.textViewClientStatus);
 
+        // Configurar RecyclerView
         messages = new ArrayList<>();
-        adapter = new ChatAdapter(messages); // envia la array de mensajes al adaptador
-
+        adapter = new ChatAdapter(messages);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
@@ -53,11 +66,71 @@ public class SegundaPantalla extends AppCompatActivity {
             e.printStackTrace();
         }
 
+        // Iniciar el cliente en un hilo aparte para evitar bloquear el hilo principal
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                startClient();
+            }
+        }).start();
+
+        // Configurar el botón de enviar mensaje
         buttonSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 String message = editTextMessage.getText().toString().trim();
                 if (!message.isEmpty()) {
+                    // Enviar el mensaje al servidor
+                    sendMessage(message);
+                }
+            }
+        });
+    }
+
+    private void startClient() {
+        String serverAddress = "192.168.2.140";
+        int port = 12345;
+
+        try {
+            socket = new Socket(serverAddress, port);
+            outputStream = socket.getOutputStream();
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    textView.setText("Conectado al servidor.");
+                }
+            });
+
+            // Recepción de la respuesta del servidor
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            while (true) {
+                final String serverResponse = in.readLine();
+                if (serverResponse != null) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            textView.setText("Respuesta del servidor: " + serverResponse);
+                        }
+                    });
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    textView.setText("Error: " + e.getMessage());
+                }
+            });
+        }
+    }
+
+    private void sendMessage(String message) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
                     // Cifrar el mensaje simétricamente
                     String encryptedMessage = encryptSymmetrically(message);
 
@@ -65,20 +138,37 @@ public class SegundaPantalla extends AppCompatActivity {
                     String signature = signAndEncryptAsymmetrically(encryptedMessage);
 
                     String combinedMessage = encryptedMessage + "|" + signature;
-                    //ENVIAR COMBINED MESSAGE AL SERVER
-                    Log.i("test","mensaje encriptado: "+combinedMessage);
+                    // Enviar el mensaje combinado al servidor
+                    Log.i("test", "mensaje encriptado: " + combinedMessage);
 
-                    messages.add(message);
-                    adapter.notifyItemInserted(messages.size() - 1);
-                    recyclerView.scrollToPosition(messages.size() - 1);
+                    outputStream.write((combinedMessage + "\n").getBytes());
 
-                    // Limpiar el EditText después de enviar el mensaje
-                    editTextMessage.setText("");
+                    // Actualizar la interfaz de usuario con el mensaje enviado
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            messages.add(message);
+                            adapter.notifyItemInserted(messages.size() - 1);
+                            recyclerView.scrollToPosition(messages.size() - 1);
+                            // Limpiar el EditText después de enviar el mensaje
+                            editTextMessage.setText("");
+                        }
+                    });
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            textView.setText("Error al enviar el mensaje: " + e.getMessage());
+                        }
+                    });
                 }
             }
-        });
+        }).start();
     }
 
+    //-----------------------Encriptación------------------------------
     // Generar una clave simétrica
     private void generateSymmetricKey() throws NoSuchAlgorithmException {
         KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
@@ -133,6 +223,3 @@ public class SegundaPantalla extends AppCompatActivity {
         }
     }
 }
-
-
-

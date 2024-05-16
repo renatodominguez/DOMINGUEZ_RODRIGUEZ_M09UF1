@@ -9,18 +9,29 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
+    private Button btnClient, btnServer;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button button = findViewById(R.id.button);
-        button.setOnClickListener(new View.OnClickListener() {
+        btnClient = findViewById(R.id.buttonC);
+        btnServer = findViewById(R.id.buttonS);
+
+        btnClient.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Crear un intent para abrir la SegundaPantalla
-                Intent intent = new Intent(MainActivity.this, SegundaPantalla.class);
-                startActivity(intent);
+                // Iniciar la actividad del cliente
+                startActivity(new Intent(MainActivity.this, ClientActivity.class));
+            }
+        });
+
+        btnServer.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Iniciar la actividad del servidor
+                startActivity(new Intent(MainActivity.this, ServerActivity.class));
             }
         });
     }

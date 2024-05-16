@@ -23,7 +23,11 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".SegundaPantalla"
+            android:name=".ClientActivity"
+            android:exported="true">
+        </activity>
+        <activity
+            android:name=".ServerActivity"
             android:exported="true">
         </activity>
     </application>
