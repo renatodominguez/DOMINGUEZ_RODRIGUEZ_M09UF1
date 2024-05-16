@@ -2,6 +2,7 @@ package edu.fje.dominguez_rodriguez_m09uf1;
 
 import android.os.Bundle;
 import android.util.Base64;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -9,9 +10,6 @@ import android.widget.EditText;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -29,7 +27,6 @@ public class SegundaPantalla extends AppCompatActivity {
     private RecyclerView recyclerView;
     private ChatAdapter adapter;
     private List<String> messages;
-    private DatabaseReference databaseRef;
     private SecretKey symmetricKey;
     private KeyPair asymmetricKeyPair;
 
@@ -37,10 +34,6 @@ public class SegundaPantalla extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_segunda_pantalla);
-
-        // Inicializar Firebase
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
-        DatabaseReference myRef = database.getReference("message");
 
         recyclerView = findViewById(R.id.recyclerViewChat);
         Button buttonSend = findViewById(R.id.buttonSend);
@@ -71,9 +64,13 @@ public class SegundaPantalla extends AppCompatActivity {
                     // Firmar y cifrar la firma digital asimétricamente
                     String signature = signAndEncryptAsymmetrically(encryptedMessage);
 
-                    // Guardar el mensaje cifrado y la firma cifrada en Firebase
                     String combinedMessage = encryptedMessage + "|" + signature;
-                    myRef.setValue(combinedMessage);
+                    //ENVIAR COMBINED MESSAGE AL SERVER
+                    Log.i("test","mensaje encriptado: "+combinedMessage);
+
+                    messages.add(message);
+                    adapter.notifyItemInserted(messages.size() - 1);
+                    recyclerView.scrollToPosition(messages.size() - 1);
 
                     // Limpiar el EditText después de enviar el mensaje
                     editTextMessage.setText("");
